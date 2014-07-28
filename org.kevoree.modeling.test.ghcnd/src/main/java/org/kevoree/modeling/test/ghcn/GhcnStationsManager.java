@@ -1,8 +1,9 @@
-package org.kevoree.modeling.test.ghcnd;
+package org.kevoree.modeling.test.ghcn;
 
-import kmf.ghcnd.*;
-import org.kevoree.modeling.api.time.TimeView;
-import org.kevoree.modeling.test.ghcnd.utils.FtpClient;
+import kmf.ghcn.*;
+import kmf.ghcn.factory.GhcnFactory;
+import org.kevoree.modeling.test.ghcn.utils.FtpClient;
+import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -10,75 +11,75 @@ import java.util.ArrayList;
 /**
  * Created by gregory.nain on 23/07/2014.
  */
-public class GhcnStationsManager {
+public class GhcnStationsManager extends AbstractManager {
 
-    protected TimeView<GhcndFactory> rootTimeView;
-    //protected GhcndFactory factory;
-    protected DataSet root;
     protected static String serverAddress = "ftp.ncdc.noaa.gov";
     protected static String remoteDirectory = "/pub/data/ghcn/daily";
     protected static String localDirectory = "/tmp/ghcn";
     protected static String fileName = "ghcnd-stations.txt";
 
-    private int insertions = 0;
-    private int lookups = 0;
-    private long time_download = 0L;
-    private long time_readFile = 0L;
-    private long time_insert = 0L;
-    private long time_commit = 0L;
-
-
-    public GhcnStationsManager(GhcndFactory factory) {
-        this.rootTimeView =  factory.time("0");
-        //this.factory = factory;
-        root = (DataSet)rootTimeView.lookup("/");
-        if(root == null) {
-            System.err.println("Could not reach the root");
-        }
-
+   public GhcnStationsManager(GhcnFactory factory) {
+        super(factory);
     }
 
-    public void updateStations() {
+
+    public void run() {
+        FtpClient ftp = null;
+        BufferedReader reader = null;
+        Stats stats = new Stats(getClass().getSimpleName());
         try {
             if(root != null) {
-                FtpClient ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
+                ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
                 System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
                 long startTime = System.currentTimeMillis();
                 File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
-                time_download = System.currentTimeMillis() - startTime;
+                stats.time_download = System.currentTimeMillis() - startTime;
                 System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
 
                 if (countriesFile != null && countriesFile.exists()) {
-                    BufferedReader reader = new BufferedReader(new FileReader(countriesFile));
+                    reader = new BufferedReader(new FileReader(countriesFile));
                     String line = null;
                     ArrayList<String> lines = new ArrayList<String>();
                     startTime = System.currentTimeMillis();
                     while ((line = reader.readLine()) != null) {
                         lines.add(line);
                     }
-                    time_readFile = System.currentTimeMillis() - startTime;
+                    stats.time_readFile = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
                     for(String l : lines) {
-                        processLine(l);
-                        if( insertions != 0 && insertions % 500 == 0){
-                            System.out.println("Inserted " + insertions + "/" + lines.size());
+                        processLine(l, stats);
+                        if( stats.insertions != 0 && stats.insertions % 10000 == 0){
+                            System.out.println("Inserted " + stats.insertions + "/" + lines.size());
                         }
                     }
-                    time_insert = System.currentTimeMillis() - startTime;
+                    stats.time_insert = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
                     rootTimeView.commit();
                     //factory.commit();
-                    time_commit = System.currentTimeMillis() - startTime;
+                    stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
                     System.err.println("Country file not available locally !");
                 }
 
             }
 
+            result.statistics.add(stats);
+
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            if(ftp != null) {
+                ftp.disconnect();
+            }
+            if(reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
     }
@@ -96,7 +97,7 @@ public class GhcnStationsManager {
     * HCNFLAG      77-79   Character
     * WMOID        81-85   Character
     * */
-    private void processLine(String line) {
+    private void processLine(String line, Stats stats) {
         //System.out.println("Line("+line.length()+"):" + line);
         String id = line.substring(0,11).trim();
         String lat = line.substring(12,20).trim();
@@ -108,16 +109,13 @@ public class GhcnStationsManager {
         String hcnFlag = line.substring(76,79).trim();
         String wmoId = line.substring(80,line.length()).trim();
 
-        lookups++;
+        stats.lookups++;
         if(rootTimeView.lookup("/stations["+id+"]") == null) {
             Station station = rootTimeView.factory().createStation()
-        //if(factory.lookup("/stations["+id+"]") == null) {
-         //   Station station = factory.createStation()
                     .withId(id)
                     .withGsnFlag(!"".equals(gsnFlag))
                     .withHcnFlag(!"".equals(hcnFlag));
             Country c = (Country)rootTimeView.lookup("/countries[" + id.substring(0,2) + "]");
-            //Country c = (Country)factory.lookup("/countries[" + id.substring(0,2) + "]");
             if(c != null) {
                 station.setCountry(c);
             }
@@ -135,7 +133,6 @@ public class GhcnStationsManager {
             }
             if(!"".equals(state)) {
                 USState s = (USState)rootTimeView.lookup("/usStates[" + state + "]");
-                //USState s = (USState)factory.lookup("/usStates[" + state + "]");
                 if(s != null) {
                     station.setState(s);
                 }
@@ -145,19 +142,9 @@ public class GhcnStationsManager {
             }
 
             root.addStations(station);
-            insertions++;
+            stats.insertions++;
         }
     }
-
-    @Override
-    public String toString() {
-        return "[CountriesManager] Stats:: Insertions:" + insertions + " Lookups:" + lookups
-                + " DownloadTime:" + time_download + "ms"
-                + " ReadFileTime:" + time_readFile + "ms"
-                + " InsertionTime:" + time_insert + "ms"
-                + " CommitTime:" + time_commit + "ms";
-    }
-
 
 
 }

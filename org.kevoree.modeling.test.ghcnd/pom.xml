@@ -17,7 +17,7 @@
         <dependency>
             <groupId>org.kevoree.modeling</groupId>
             <artifactId>org.kevoree.modeling.microframework.datastores.leveldb</artifactId>
-            <version>2.4.1-SNAPSHOT</version>
+            <version>2.4.2-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.kevoree.modeling.test</groupId>

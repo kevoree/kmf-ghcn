@@ -1,4 +1,4 @@
-package org.kevoree.modeling.test.ghcnd.utils;
+package org.kevoree.modeling.test.ghcn.utils;
 
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
