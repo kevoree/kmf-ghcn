@@ -52,8 +52,7 @@ public class GhcnUSStatesManager extends AbstractManager {
                     }
                     stats.time_insert = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
-                    rootTimeView.commit();
-                    //factory.commit();
+                    //rootTimeView.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
                     System.err.println("Country file not available locally !");

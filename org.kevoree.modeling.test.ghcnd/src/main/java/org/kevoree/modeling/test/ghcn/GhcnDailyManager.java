@@ -79,7 +79,7 @@ public class GhcnDailyManager extends AbstractManager{
                 stats.time_insert = System.currentTimeMillis() - startTime;
 
                 startTime = System.currentTimeMillis();
-                baseFactory.commitAll();
+                //baseFactory.commitAll();
                 stats.time_commit = System.currentTimeMillis() - startTime;
             } else {
                 System.err.println("Measures file not available locally !");
@@ -141,7 +141,6 @@ SFLAG31    269-269   Character
                     }
                     record.withValue(value).withQuality(qFlag).withSource(sFlag).withMeasurement(mFlag);
                     stats.insertions++;
-                    //timeView.commit();
                 }
             }
 

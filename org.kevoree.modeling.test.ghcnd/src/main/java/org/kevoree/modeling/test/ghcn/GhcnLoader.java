@@ -55,6 +55,10 @@ public class GhcnLoader {
         }
     }
 
+    public void commitAll() {
+        baseFactory.commitAll();
+    }
+
     public void updateCountries() {
         ThreadPoolManager.addTask(new GhcnCountriesManager(baseFactory));
     }

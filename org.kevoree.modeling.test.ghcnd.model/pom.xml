@@ -67,11 +67,11 @@
 
     <pluginRepositories>
         <pluginRepository>
-            <id>Oss</id>
+            <id>Oss-P</id>
             <url>https://oss.sonatype.org/content/repositories/releases</url>
         </pluginRepository>
         <pluginRepository>
-            <id>Oss-S</id>
+            <id>Oss-P-S</id>
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </pluginRepository>
     </pluginRepositories>

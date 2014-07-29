@@ -20,6 +20,7 @@ public class GhcnLoaderTest {
         //ghcn.updateDaily();
         ghcn.updateAll();
         ghcn.waitCompletion();
+        ghcn.commitAll();
 
     }
 
