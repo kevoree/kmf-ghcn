@@ -1,11 +1,13 @@
 package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.Country;
+import kmf.ghcn.DataSet;
 import kmf.ghcn.factory.GhcnFactory;
 import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
+import java.text.ParseException;
 import java.util.ArrayList;
 
 /**
@@ -27,6 +29,16 @@ public class GhcnCountriesManager extends AbstractManager {
 
 
     public void run() {
+        try {
+            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        //root = (DataSet)baseFactory.lookup("/");
+        root = (DataSet)rootTimeView.lookup("/");
+        if(root == null) {
+            System.err.println("Could not reach the root");
+        }
 
         FtpClient ftp = null;
         BufferedReader reader = null;
@@ -58,7 +70,8 @@ public class GhcnCountriesManager extends AbstractManager {
                     }
                     stats.time_insert = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
-                    //rootTimeView.commit();
+                    rootTimeView.commit();
+                    //baseFactory.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
                     System.err.println("Country file not available locally !");
@@ -95,6 +108,13 @@ public class GhcnCountriesManager extends AbstractManager {
         String id = line.substring(0,2);
         String name = line.substring(3,line.length()).trim();
         stats.lookups++;
+        /*
+        if(baseFactory.lookup("/countries["+id+"]") == null) {
+            Country c = baseFactory.createCountry().withId(id).withName(name);
+            root.addCountries(c);
+            stats.insertions++;
+        }
+        */
         if(rootTimeView.lookup("/countries["+id+"]") == null) {
             Country c = rootTimeView.factory().createCountry().withId(id).withName(name);
             root.addCountries(c);

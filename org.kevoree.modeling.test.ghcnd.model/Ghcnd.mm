@@ -19,6 +19,7 @@ class  kmf.ghcn.Station {
     gsnFlag : Bool
     hcnFlag : Bool
     wmoId : String
+
     @contained
     lastRecords : kmf.ghcn.Record[0,*]
 }

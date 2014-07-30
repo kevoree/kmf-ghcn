@@ -11,6 +11,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TimeZone;
 
 /**
  * Created by gregory.nain on 23/07/2014.
@@ -20,17 +21,25 @@ public class GhcnDailyManager extends AbstractManager{
     protected static String serverAddress = "ftp.ncdc.noaa.gov";
     protected static String remoteDirectory = "/pub/data/ghcn/daily/all";
     protected static String localDirectory = "/tmp/ghcn";
-    protected SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMd");
 
     public GhcnDailyManager(GhcnFactory factory) {
         super(factory);
+
     }
 
     public void run() {
 
+
+        try {
+            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        //root = (DataSet)baseFactory.lookup("/");
+        root = (DataSet)rootTimeView.lookup("/");
+
         if(root != null) {
             FtpClient ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
-            root = (DataSet)rootTimeView.lookup("/");
             List<Station> stationList = root.getStations();
             if(stationList == null || stationList.size() == 0) {
                 System.err.println("No station found!");
@@ -79,7 +88,7 @@ public class GhcnDailyManager extends AbstractManager{
                 stats.time_insert = System.currentTimeMillis() - startTime;
 
                 startTime = System.currentTimeMillis();
-                //baseFactory.commitAll();
+                baseFactory.commitAll();
                 stats.time_commit = System.currentTimeMillis() - startTime;
             } else {
                 System.err.println("Measures file not available locally !");
@@ -125,8 +134,10 @@ SFLAG31    269-269   Character
                 String mFlag = line.substring(baseIdx+5, baseIdx+6).trim();
                 String qFlag = line.substring(baseIdx+6, baseIdx+7).trim();
                 String sFlag = line.substring(baseIdx+7, baseIdx+8).trim();
-
-                TimeView<GhcnFactory> timeView = baseFactory.time(simpleDateFormat.parse(year + month + i).getTime() + "");
+                String date = year + month + i;
+                //System.out.println("RawDate:" + date);
+                //System.out.println("ParsedTime:" + simpleDateFormat.parse(date).toString() + ":" + simpleDateFormat.parse(date).getTime());
+                TimeView<GhcnFactory> timeView = baseFactory.time(simpleDateFormat.parse(date).getTime() + "");
 
                 Station station = (Station) timeView.lookup("/stations["+stationId+"]");
                 if(station != null) {
@@ -138,13 +149,19 @@ SFLAG31    269-269   Character
                         if(record.getNow() == timeView.now()) {
                             continue;
                         }
+
                     }
                     record.withValue(value).withQuality(qFlag).withSource(sFlag).withMeasurement(mFlag);
                     stats.insertions++;
+                    //timeView.commit();
+                } else {
+                    System.out.println("Station not found at time point:" + timeView.now().toString());
                 }
+        /*
+        */
             }
 
-        } catch (ParseException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }

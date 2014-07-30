@@ -6,6 +6,7 @@ import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
+import java.text.ParseException;
 import java.util.ArrayList;
 
 /**
@@ -24,11 +25,25 @@ public class GhcnStationsManager extends AbstractManager {
 
 
     public void run() {
+        try {
+            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        //root = (DataSet)baseFactory.lookup("/");
+        root = (DataSet)rootTimeView.lookup("/");
+        if(root == null) {
+            System.err.println("Could not reach the root");
+        }
+
         FtpClient ftp = null;
         BufferedReader reader = null;
         Stats stats = new Stats(getClass().getSimpleName());
         try {
             if(root != null) {
+
+
+
                 ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
                 System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
                 long startTime = System.currentTimeMillis();
@@ -36,7 +51,10 @@ public class GhcnStationsManager extends AbstractManager {
                 stats.time_download = System.currentTimeMillis() - startTime;
                 System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
 
+
+
                 if (countriesFile != null && countriesFile.exists()) {
+
                     reader = new BufferedReader(new FileReader(countriesFile));
                     String line = null;
                     ArrayList<String> lines = new ArrayList<String>();
@@ -45,16 +63,26 @@ public class GhcnStationsManager extends AbstractManager {
                         lines.add(line);
                     }
                     stats.time_readFile = System.currentTimeMillis() - startTime;
+
+
+
                     startTime = System.currentTimeMillis();
                     for(String l : lines) {
+                    //for(int i = 0; i < 35000; i++) {
+                        //processLine(lines.get(i), stats);
                         processLine(l, stats);
                         if( stats.insertions != 0 && stats.insertions % 10000 == 0){
                             System.out.println("Inserted " + stats.insertions + "/" + lines.size());
                         }
                     }
                     stats.time_insert = System.currentTimeMillis() - startTime;
+
+
+
+                    System.out.println("Statioons Size:" + root.getStations().size());
                     startTime = System.currentTimeMillis();
-                   // rootTimeView.commit();
+                    rootTimeView.commit();
+                    //baseFactory.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
                     System.err.println("Country file not available locally !");
@@ -80,7 +108,6 @@ public class GhcnStationsManager extends AbstractManager {
                 }
             }
         }
-
     }
 
 
@@ -110,11 +137,16 @@ public class GhcnStationsManager extends AbstractManager {
 
         stats.lookups++;
         if(rootTimeView.lookup("/stations["+id+"]") == null) {
+        //if(baseFactory.lookup("/stations["+id+"]") == null) {
             Station station = rootTimeView.factory().createStation()
+            //Station station = baseFactory.createStation()
                     .withId(id)
                     .withGsnFlag(!"".equals(gsnFlag))
                     .withHcnFlag(!"".equals(hcnFlag));
+
             Country c = (Country)rootTimeView.lookup("/countries[" + id.substring(0,2) + "]");
+
+            //Country c = (Country)baseFactory.lookup("/countries[" + id.substring(0,2) + "]");
             if(c != null) {
                 station.setCountry(c);
             }
@@ -130,8 +162,10 @@ public class GhcnStationsManager extends AbstractManager {
             if(!"".equals(elv)) {
                 station.setElevation(Float.valueOf(elv));
             }
+
             if(!"".equals(state)) {
                 USState s = (USState)rootTimeView.lookup("/usStates[" + state + "]");
+                //USState s = (USState)baseFactory.lookup("/usStates[" + state + "]");
                 if(s != null) {
                     station.setState(s);
                 }
@@ -142,6 +176,7 @@ public class GhcnStationsManager extends AbstractManager {
 
             root.addStations(station);
             stats.insertions++;
+            //System.out.println(baseFactory.createJSONSerializer().serialize(station));
         }
     }
 

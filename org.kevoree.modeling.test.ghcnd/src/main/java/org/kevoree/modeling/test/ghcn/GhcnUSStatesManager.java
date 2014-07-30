@@ -1,10 +1,12 @@
 package org.kevoree.modeling.test.ghcn;
 
+import kmf.ghcn.DataSet;
 import kmf.ghcn.factory.GhcnFactory;
 import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
+import java.text.ParseException;
 import java.util.ArrayList;
 
 /**
@@ -22,6 +24,18 @@ public class GhcnUSStatesManager extends AbstractManager {
     }
 
     public void run() {
+
+        try {
+            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        //root = (DataSet)baseFactory.lookup("/");
+        root = (DataSet)rootTimeView.lookup("/");
+        if(root == null) {
+            System.err.println("Could not reach the root");
+        }
+
         FtpClient ftp = null;
         BufferedReader reader = null;
         Stats stats = new Stats(getClass().getSimpleName());
@@ -52,7 +66,8 @@ public class GhcnUSStatesManager extends AbstractManager {
                     }
                     stats.time_insert = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
-                    //rootTimeView.commit();
+                    rootTimeView.commit();
+                    //baseFactory.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
                     System.err.println("Country file not available locally !");
@@ -93,6 +108,14 @@ public class GhcnUSStatesManager extends AbstractManager {
         String name = line.substring(3,line.length()).trim();
         //System.out.println("ID:"+id+"; name:" + name);
         stats.lookups++;
+
+        /*
+        if(baseFactory.lookup("/usStates["+id+"]") == null) {
+            root.addUsStates(baseFactory.createUSState().withId(id).withName(name));
+            stats.insertions++;
+        }
+        */
+
         if(rootTimeView.lookup("/usStates["+id+"]") == null) {
             root.addUsStates(rootTimeView.factory().createUSState().withId(id).withName(name));
             // if(factory.lookup("/usStates["+id+"]") == null) {

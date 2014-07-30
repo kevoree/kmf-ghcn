@@ -15,7 +15,7 @@ import java.util.concurrent.Future;
  */
 public class ThreadPoolManager {
 
-    private static ExecutorService threadPool = Executors.newFixedThreadPool(3);
+    private static ExecutorService threadPool = Executors.newSingleThreadExecutor();//Executors.newFixedThreadPool(1);
 
     public static Queue<Future<UpdateResult>> waitingExecution = new ConcurrentLinkedQueue<Future<UpdateResult>>();
 
