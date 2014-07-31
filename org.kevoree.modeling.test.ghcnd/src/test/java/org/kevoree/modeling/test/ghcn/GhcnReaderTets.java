@@ -17,7 +17,7 @@ public class GhcnReaderTets {
         //ghcn.printCountries();
         //ghcn.printStates();
         //ghcn.printStations();
-        ghcn.printDailyRecords();
+       // ghcn.printDailyRecords();
 
     }
 

@@ -2,6 +2,8 @@ package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.*;
 import kmf.ghcn.factory.GhcnFactory;
+import kmf.ghcn.factory.GhcnTransaction;
+import kmf.ghcn.factory.GhcnTransactionManager;
 import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
@@ -19,29 +21,26 @@ public class GhcnStationsManager extends AbstractManager {
     protected static String localDirectory = "/tmp/ghcn";
     protected static String fileName = "ghcnd-stations.txt";
 
-   public GhcnStationsManager(GhcnFactory factory) {
-        super(factory);
+   public GhcnStationsManager(GhcnTransactionManager tm) {
+        super(tm);
     }
 
 
     public void run() {
+        FtpClient ftp = null;
+        BufferedReader reader = null;
         try {
-            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
+            GhcnTransaction transaction = tm.createTransaction();
+            this.rootTimeView =  transaction.time(simpleDateFormat.parse("18000101").getTime());
+
         //root = (DataSet)baseFactory.lookup("/");
         root = (DataSet)rootTimeView.lookup("/");
         if(root == null) {
             System.err.println("Could not reach the root");
         }
 
-        FtpClient ftp = null;
-        BufferedReader reader = null;
         Stats stats = new Stats(getClass().getSimpleName());
-        try {
             if(root != null) {
-
 
 
                 ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
@@ -50,7 +49,6 @@ public class GhcnStationsManager extends AbstractManager {
                 File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
                 stats.time_download = System.currentTimeMillis() - startTime;
                 System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
-
 
 
                 if (countriesFile != null && countriesFile.exists()) {
@@ -65,7 +63,6 @@ public class GhcnStationsManager extends AbstractManager {
                     stats.time_readFile = System.currentTimeMillis() - startTime;
 
 
-
                     startTime = System.currentTimeMillis();
                     for(String l : lines) {
                     //for(int i = 0; i < 35000; i++) {
@@ -78,10 +75,10 @@ public class GhcnStationsManager extends AbstractManager {
                     stats.time_insert = System.currentTimeMillis() - startTime;
 
 
-
                     System.out.println("Statioons Size:" + root.getStations().size());
                     startTime = System.currentTimeMillis();
-                    rootTimeView.commit();
+                    transaction.commit();
+                    transaction.close();
                     //baseFactory.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
@@ -95,6 +92,8 @@ public class GhcnStationsManager extends AbstractManager {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ParseException e) {
             e.printStackTrace();
         } finally {
             if(ftp != null) {
@@ -138,7 +137,7 @@ public class GhcnStationsManager extends AbstractManager {
         stats.lookups++;
         if(rootTimeView.lookup("/stations["+id+"]") == null) {
         //if(baseFactory.lookup("/stations["+id+"]") == null) {
-            Station station = rootTimeView.factory().createStation()
+            Station station = rootTimeView.createStation()
             //Station station = baseFactory.createStation()
                     .withId(id)
                     .withGsnFlag(!"".equals(gsnFlag))

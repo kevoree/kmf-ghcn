@@ -2,6 +2,9 @@ package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.*;
 import kmf.ghcn.factory.GhcnFactory;
+import kmf.ghcn.factory.GhcnTimeView;
+import kmf.ghcn.factory.GhcnTransaction;
+import kmf.ghcn.factory.GhcnTransactionManager;
 import org.kevoree.modeling.api.time.TimeView;
 import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
@@ -22,44 +25,46 @@ public class GhcnDailyManager extends AbstractManager{
     protected static String remoteDirectory = "/pub/data/ghcn/daily/all";
     protected static String localDirectory = "/tmp/ghcn";
 
-    public GhcnDailyManager(GhcnFactory factory) {
-        super(factory);
+    public GhcnDailyManager(GhcnTransactionManager tm) {
+        super(tm);
 
     }
 
     public void run() {
 
-
         try {
-            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+
+            GhcnTransaction transaction = tm.createTransaction();
+            this.rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
+
+            //root = (DataSet)baseFactory.lookup("/");
+            root = (DataSet) rootTimeView.lookup("/");
+
+            if (root != null) {
+                FtpClient ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
+                List<Station> stationList = root.getStations();
+                if (stationList == null || stationList.size() == 0) {
+                    System.err.println("No station found!");
+                    return;
+                }
+
+                for (int i = 0; i < 2; i++) {
+                    String stationId = stationList.get(i).internalGetKey();
+                    String stationFileName = stationId + ".dly";
+                    Stats stats = new Stats(getClass().getSimpleName() + "::" + stationId);
+                    processFile(ftp, stationFileName, stats, transaction);
+                    result.statistics.add(stats);
+                }
+
+                transaction.close();
+            }
+
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        //root = (DataSet)baseFactory.lookup("/");
-        root = (DataSet)rootTimeView.lookup("/");
-
-        if(root != null) {
-            FtpClient ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
-            List<Station> stationList = root.getStations();
-            if(stationList == null || stationList.size() == 0) {
-                System.err.println("No station found!");
-                return;
-            }
-
-            for(int i = 0 ; i < 2 ; i++) {
-                String stationId = stationList.get(i).internalGetKey();
-                String stationFileName = stationId + ".dly";
-                Stats stats = new Stats(getClass().getSimpleName() + "::" + stationId);
-                processFile(ftp, stationFileName, stats);
-                result.statistics.add(stats);
-            }
-
-        }
-
     }
 
-
-    private void processFile(FtpClient ftp, String fileName, Stats stats) {
+    private void processFile(FtpClient ftp, String fileName, Stats stats, GhcnTransaction transaction) {
         try {
             System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
             long startTime = System.currentTimeMillis();
@@ -79,7 +84,7 @@ public class GhcnDailyManager extends AbstractManager{
                 startTime = System.currentTimeMillis();
                 int lineNum = 0;
                 for (String l : lines) {
-                    processLine(l, stats);
+                    processLine(l, stats, transaction);
                     lineNum++;
                     if (stats.insertions != 0 && stats.insertions % 50 == 0) {
                         System.out.println("Processed "+lineNum + "/" + lines.size() +" Inserted " + stats.insertions + "/" + 31*lines.size());
@@ -88,7 +93,7 @@ public class GhcnDailyManager extends AbstractManager{
                 stats.time_insert = System.currentTimeMillis() - startTime;
 
                 startTime = System.currentTimeMillis();
-                baseFactory.commitAll();
+                transaction.commit();
                 stats.time_commit = System.currentTimeMillis() - startTime;
             } else {
                 System.err.println("Measures file not available locally !");
@@ -120,7 +125,7 @@ MFLAG31    267-267   Character
 QFLAG31    268-268   Character
 SFLAG31    269-269   Character
     * */
-    private void processLine(String line, Stats stats) {
+    private void processLine(String line, Stats stats, GhcnTransaction transaction) {
         try {
             String stationId = line.substring(0,11).trim();
             String year = line.substring(11, 15).trim();
@@ -137,13 +142,13 @@ SFLAG31    269-269   Character
                 String date = year + month + i;
                 //System.out.println("RawDate:" + date);
                 //System.out.println("ParsedTime:" + simpleDateFormat.parse(date).toString() + ":" + simpleDateFormat.parse(date).getTime());
-                TimeView<GhcnFactory> timeView = baseFactory.time(simpleDateFormat.parse(date).getTime() + "");
+                GhcnTimeView timeView = transaction.time(simpleDateFormat.parse(date).getTime());
 
                 Station station = (Station) timeView.lookup("/stations["+stationId+"]");
                 if(station != null) {
                     Record record = station.findLastRecordsByID(elementType);
                     if(record == null) {
-                        record = timeView.factory().createRecord().withType(elementType);
+                        record = timeView.createRecord().withType(elementType);
                         station.addLastRecords(record);
                     } else {
                         if(record.getNow() == timeView.now()) {
@@ -153,9 +158,8 @@ SFLAG31    269-269   Character
                     }
                     record.withValue(value).withQuality(qFlag).withSource(sFlag).withMeasurement(mFlag);
                     stats.insertions++;
-                    //timeView.commit();
                 } else {
-                    System.out.println("Station not found at time point:" + timeView.now().toString());
+                    System.out.println("Station not found at time point:" + timeView.now());
                 }
         /*
         */

@@ -3,6 +3,8 @@ package org.kevoree.modeling.test.ghcn;
 import kmf.ghcn.Country;
 import kmf.ghcn.DataSet;
 import kmf.ghcn.factory.GhcnFactory;
+import kmf.ghcn.factory.GhcnTransaction;
+import kmf.ghcn.factory.GhcnTransactionManager;
 import org.kevoree.modeling.test.ghcn.utils.FtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
@@ -22,28 +24,27 @@ public class GhcnCountriesManager extends AbstractManager {
     protected static String fileName = "ghcnd-countries.txt";
 
 
-    public GhcnCountriesManager(GhcnFactory factory) {
-        super(factory);
+    public GhcnCountriesManager(GhcnTransactionManager tm) {
+        super(tm);
     }
 
 
 
     public void run() {
-        try {
-            this.rootTimeView =  baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        //root = (DataSet)baseFactory.lookup("/");
-        root = (DataSet)rootTimeView.lookup("/");
-        if(root == null) {
-            System.err.println("Could not reach the root");
-        }
-
         FtpClient ftp = null;
         BufferedReader reader = null;
-        Stats stats = new Stats(getClass().getSimpleName());
         try {
+            GhcnTransaction transaction = tm.createTransaction();
+            this.rootTimeView =  transaction.time(simpleDateFormat.parse("18000101").getTime());
+            //root = (DataSet)baseFactory.lookup("/");
+            root = (DataSet)rootTimeView.lookup("/");
+
+            if(root == null) {
+                System.err.println("Could not reach the root");
+            }
+
+            Stats stats = new Stats(getClass().getSimpleName());
+
             if(root != null) {
                 ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
                 System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
@@ -70,7 +71,8 @@ public class GhcnCountriesManager extends AbstractManager {
                     }
                     stats.time_insert = System.currentTimeMillis() - startTime;
                     startTime = System.currentTimeMillis();
-                    rootTimeView.commit();
+                    transaction.commit();
+                    transaction.close();
                     //baseFactory.commit();
                     stats.time_commit = System.currentTimeMillis() - startTime;
                 } else {
@@ -83,6 +85,8 @@ public class GhcnCountriesManager extends AbstractManager {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ParseException e) {
             e.printStackTrace();
         } finally {
             if(ftp != null) {
@@ -116,7 +120,7 @@ public class GhcnCountriesManager extends AbstractManager {
         }
         */
         if(rootTimeView.lookup("/countries["+id+"]") == null) {
-            Country c = rootTimeView.factory().createCountry().withId(id).withName(name);
+            Country c = rootTimeView.createCountry().withId(id).withName(name);
             root.addCountries(c);
             stats.insertions++;
         }

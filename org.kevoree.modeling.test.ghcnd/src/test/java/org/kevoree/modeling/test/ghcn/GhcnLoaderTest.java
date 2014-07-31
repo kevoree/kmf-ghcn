@@ -45,7 +45,6 @@ public class GhcnLoaderTest {
         ghcn.updateDaily();
 
         ghcn.waitCompletion();
-        ghcn.commitAll();
         ghcn.free();
 
         GhcnReader reader = new GhcnReader();

@@ -1,8 +1,8 @@
 package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.DataSet;
-import kmf.ghcn.factory.DefaultGhcnFactory;
-import kmf.ghcn.factory.GhcnFactory;
+import kmf.ghcn.factory.*;
+import org.kevoree.modeling.api.TransactionManager;
 import org.kevoree.modeling.api.time.TimeView;
 import org.kevoree.modeling.datastores.leveldb.LevelDbDataStore;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
@@ -20,7 +20,7 @@ import java.util.concurrent.*;
 public class GhcnLoader {
 
     private String dbLocation = "GhcnLevelDB";
-    private GhcnFactory baseFactory;
+    private GhcnTransactionManager tm;
 
     public GhcnLoader() {
         initFactory();
@@ -34,34 +34,36 @@ public class GhcnLoader {
 
     private void initFactory() {
 
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMd");
-        simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+        tm = new GhcnTransactionManager(new LevelDbDataStore(dbLocation));
+        checkRoot();
+
+    }
 
 
-        baseFactory = new DefaultGhcnFactory();
-        baseFactory.setDatastore(new LevelDbDataStore(dbLocation));
-        TimeView<GhcnFactory> rootTimeView = null;
+    private void checkRoot() {
         try {
-            rootTimeView = baseFactory.time(simpleDateFormat.parse("18000101").getTime() + "");
+
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMd");
+            simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+
+            GhcnTransaction transaction = tm.createTransaction();
+            GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
+            DataSet root = (DataSet)rootTimeView.lookup("/");
+            if(root == null) {
+                System.out.println("Create root");
+                root = rootTimeView.createDataSet();
+                rootTimeView.root(root);
+                transaction.commit();
+                transaction.close();
+            }
         } catch (ParseException e) {
             e.printStackTrace();
         }
-        DataSet root = (DataSet)rootTimeView.lookup("/");
-        //DataSet root = (DataSet)baseFactory.lookup("/");
-        if(root == null) {
-            /*
-            root = baseFactory.createDataSet();
-            baseFactory.root(root);
-            baseFactory.commit();
-            */
-            root = rootTimeView.factory().createDataSet();
-            rootTimeView.root(root);
-            rootTimeView.commit();
-        }
     }
 
+
     public void free(){
-        baseFactory.getDatastore().sync();
+        tm.close();
     }
 
     public void updateAll() {
@@ -89,13 +91,8 @@ public class GhcnLoader {
 
     }
 
-    public void commitAll() {
-        baseFactory.commitAll();
-        //baseFactory.commit();
-    }
-
     public void updateCountries() {
-        ThreadPoolManager.addTask(new GhcnCountriesManager(baseFactory));
+        ThreadPoolManager.addTask(new GhcnCountriesManager(tm));
         //(new GhcnCountriesManager(baseFactory)).run();
        /*
         Thread t  = new Thread(new GhcnCountriesManager(baseFactory));
@@ -109,7 +106,7 @@ public class GhcnLoader {
     }
 
     public void updateStations() {
-        ThreadPoolManager.addTask(new GhcnStationsManager(baseFactory));
+        ThreadPoolManager.addTask(new GhcnStationsManager(tm));
         //(new GhcnStationsManager(baseFactory)).run();
        /*
         Thread t  = new Thread(new GhcnStationsManager(baseFactory));
@@ -123,7 +120,7 @@ public class GhcnLoader {
     }
 
     public void updateUSStates() {
-        ThreadPoolManager.addTask(new GhcnUSStatesManager(baseFactory));
+        ThreadPoolManager.addTask(new GhcnUSStatesManager(tm));
         //(new GhcnUSStatesManager(baseFactory)).run();
         /*
         Thread t  = new Thread(new GhcnUSStatesManager(baseFactory));
@@ -137,6 +134,6 @@ public class GhcnLoader {
     }
 
     public void updateDaily() {
-        ThreadPoolManager.addTask(new GhcnDailyManager(baseFactory));
+        ThreadPoolManager.addTask(new GhcnDailyManager(tm));
     }
 }
