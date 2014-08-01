@@ -70,7 +70,7 @@ public class WalkerTest {
 
         @Override
         public void walk(@JetValueParameter(name = "timePoint") @NotNull long timePoint) {
-            System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
+            //System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
             if(previous != 0) {
                 assertTrue(previous <= timePoint);
             } else {
@@ -110,7 +110,7 @@ public class WalkerTest {
 
         @Override
         public void walk(@JetValueParameter(name = "timePoint") @NotNull long timePoint) {
-            System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
+            //System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
             if(previous != 0) {
                 assertTrue(previous >= timePoint);
             } else {
@@ -156,12 +156,8 @@ public class WalkerTest {
 
         @Override
         public void walk(@JetValueParameter(name = "timePoint") @NotNull long timePoint) {
-            System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+            //System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
+
             if(previous == 0) {
                 boolean valid = (timePoint == origin);
                 valid |= (timeMetaRoot.getVersionTree().lower(origin).getKey() == timePoint);
@@ -187,7 +183,7 @@ public class WalkerTest {
             long start = localDateFormat.parse("1889.01.25 11:50:00").getTime();//25 janv. 1899 11h50
             long end = localDateFormat.parse("1889.02.04 11:50:00").getTime();//11 nov. 1909 11h50
             long tail = localDateFormat.parse("1889.02.04 00:00:00").getTime();//11 nov. 1909 11h50
-            System.out.println("Origin:"+localDateFormat.format(new Date(origin)) + " start:" + localDateFormat.format(new Date(start)));
+            //System.out.println("Origin:"+localDateFormat.format(new Date(origin)) + " start:" + localDateFormat.format(new Date(start)));
             RangeAscendingWalker walker = new RangeAscendingWalker(origin, start, end);
             timeMetaRoot.walkRangeAsc(walker, start, end);
             assertTrue("Previous:"+localDateFormat.format(new Date(walker.previous)) + " tail:" + localDateFormat.format(new Date(tail)), walker.previous == tail);
@@ -201,21 +197,27 @@ public class WalkerTest {
     public class RangeDescendingWalker implements TimeWalker {
 
         public long origin, from, to, previous = 0;
+        SimpleDateFormat localDateFormat;
 
         public RangeDescendingWalker(long origin, long from, long to) {
             this.origin = origin;
             this.from = from;
             this.to = to;
+            localDateFormat = new SimpleDateFormat("yyyy.MM.d H:m:s");
+            localDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
         }
 
         @Override
         public void walk(@JetValueParameter(name = "timePoint") @NotNull long timePoint) {
-            System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
+            //System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
             if(previous == 0) {
                 boolean valid = (timePoint == origin);
                 valid |= (timeMetaRoot.getVersionTree().lower(origin).getKey() == timePoint);
                 valid |= (timeMetaRoot.getVersionTree().upper(origin).getKey() == timePoint);
-                assertTrue(valid);
+                assertTrue("Origin:"+localDateFormat.format(new Date(origin))
+                        + " FirstTP:" + localDateFormat.format(new Date(timePoint))
+                        + " Upper:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().upper(origin).getKey()))
+                        + " Lower:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().lower(origin).getKey())), valid);
             } else {
                 assert(previous > timePoint);
             }
@@ -236,7 +238,7 @@ public class WalkerTest {
 
             RangeDescendingWalker walker = new RangeDescendingWalker(origin, start, end);
             timeMetaRoot.walkRangeDesc(walker, start, end);
-            assert(walker.previous == tail);
+            assertTrue("End:" + localDateFormat.format(new Date(end)) + " Last:" + localDateFormat.format(new Date(walker.previous)) + " Tail:" + localDateFormat.format(new Date(tail)), walker.previous == tail);
 
         } catch (ParseException e) {
             e.printStackTrace();
