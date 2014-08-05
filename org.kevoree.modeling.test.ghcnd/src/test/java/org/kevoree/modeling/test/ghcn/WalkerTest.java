@@ -2,6 +2,7 @@ package org.kevoree.modeling.test.ghcn;
 
 import jet.runtime.typeinfo.JetValueParameter;
 import kmf.ghcn.DataSet;
+import kmf.ghcn.Record;
 import kmf.ghcn.factory.GhcnTimeView;
 import kmf.ghcn.factory.GhcnTransaction;
 import kmf.ghcn.factory.GhcnTransactionManager;
@@ -9,6 +10,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.kevoree.modeling.api.KMFContainer;
+import org.kevoree.modeling.api.time.TimeAwareKMFContainer;
 import org.kevoree.modeling.api.time.TimeAwareKMFFactory;
 import org.kevoree.modeling.api.time.TimeWalker;
 import org.kevoree.modeling.api.time.blob.TimeMeta;
@@ -86,7 +89,7 @@ public class WalkerTest {
 
             long origin = simpleDateFormat.parse("18000101").getTime();
             AscendingWalker walker = new AscendingWalker(origin);
-            long latest = timeMetaRoot.getVersionTree().max().getKey();
+            long latest = timeMetaRoot.getVersionTree().last().getKey();
             timeMetaRoot.walkAsc(walker);
             assert(walker.previous == latest);
 
@@ -94,8 +97,6 @@ public class WalkerTest {
             e.printStackTrace();
         }
     }
-
-
 
 
 
@@ -137,9 +138,6 @@ public class WalkerTest {
 
 
 
-
-
-
     public class RangeAscendingWalker implements TimeWalker {
 
         public long origin, from, to, previous = 0;
@@ -160,12 +158,12 @@ public class WalkerTest {
 
             if(previous == 0) {
                 boolean valid = (timePoint == origin);
-                valid |= (timeMetaRoot.getVersionTree().lower(origin).getKey() == timePoint);
-                valid |= (timeMetaRoot.getVersionTree().upper(origin).getKey() == timePoint);
+                valid |= (timeMetaRoot.getVersionTree().previous(origin).getKey() == timePoint);
+                valid |= (timeMetaRoot.getVersionTree().next(origin).getKey() == timePoint);
                 assertTrue("Origin:"+localDateFormat.format(new Date(origin))
                         + " FirstTP:" + localDateFormat.format(new Date(timePoint))
-                        + " Upper:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().upper(origin).getKey()))
-                        + " Lower:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().lower(origin).getKey())), valid);
+                        + " Upper:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().previous(origin).getKey()))
+                        + " Lower:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().next(origin).getKey())), valid);
             } else {
                 assert(previous <= timePoint);
             }
@@ -194,6 +192,7 @@ public class WalkerTest {
     }
 
 
+
     public class RangeDescendingWalker implements TimeWalker {
 
         public long origin, from, to, previous = 0;
@@ -212,12 +211,12 @@ public class WalkerTest {
             //System.out.println("" + SimpleDateFormat.getDateInstance().format(new Date(timePoint)));
             if(previous == 0) {
                 boolean valid = (timePoint == origin);
-                valid |= (timeMetaRoot.getVersionTree().lower(origin).getKey() == timePoint);
-                valid |= (timeMetaRoot.getVersionTree().upper(origin).getKey() == timePoint);
+                valid |= (timeMetaRoot.getVersionTree().previous(origin).getKey() == timePoint);
+                valid |= (timeMetaRoot.getVersionTree().next(origin).getKey() == timePoint);
                 assertTrue("Origin:"+localDateFormat.format(new Date(origin))
                         + " FirstTP:" + localDateFormat.format(new Date(timePoint))
-                        + " Upper:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().upper(origin).getKey()))
-                        + " Lower:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().lower(origin).getKey())), valid);
+                        + " Upper:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().previous(origin).getKey()))
+                        + " Lower:" + localDateFormat.format(new Date(timeMetaRoot.getVersionTree().next(origin).getKey())), valid);
             } else {
                 assert(previous > timePoint);
             }
@@ -244,7 +243,43 @@ public class WalkerTest {
             e.printStackTrace();
         }
     }
-/*
-*/
+
+
+
+    @Test
+    public void nextFunctionTest() {
+        try {
+            final GhcnTransaction testTransaction = tm.createTransaction();
+            GhcnTimeView timeView = testTransaction.time(simpleDateFormat.parse("19890101").getTime());
+            Record firstRecord = (Record) timeView.lookup("/stations[ASN00075156]/lastRecords[PRCP]");
+
+            TimeMeta recordTimes = ((TimeAwareKMFFactory)timeView).getTimeTree(firstRecord.path());
+            recordTimes.walkAsc(new TimeWalker() {
+                long previousDotNow;
+                TimeAwareKMFContainer previousDotNext;
+                boolean firstPassed = false;
+
+                @Override
+                public void walk(@JetValueParameter(name = "timePoint") long l) {
+                    //System.out.println("L:" + simpleDateFormat.format(new Date(l)));
+                    GhcnTimeView myTimeView = testTransaction.time(l);
+                    Record record = (Record) myTimeView.lookup("/stations[ASN00075156]/lastRecords[PRCP]");
+                    if(firstPassed) {
+                        assertTrue("Previous.next:" + simpleDateFormat.format(new Date(previousDotNext.getNow())) + " Previous.now:" + simpleDateFormat.format(new Date(previousDotNow)), previousDotNext.getNow() == l);
+                    } else {
+                        firstPassed = true;
+                    }
+                    previousDotNow = record.getNow();
+                    previousDotNext = record.next();
+                }
+            });
+
+
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+    }
+
+
 }
 

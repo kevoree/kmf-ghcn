@@ -142,6 +142,9 @@ SFLAG31    269-269   Character
                 String date = year + month + i;
                 //System.out.println("RawDate:" + date);
                 //System.out.println("ParsedTime:" + simpleDateFormat.parse(date).toString() + ":" + simpleDateFormat.parse(date).getTime());
+                if("-9999".equals(value) && "".equals(mFlag) && "".equals(qFlag) && "".equals(sFlag)) {
+                    continue;
+                }
                 GhcnTimeView timeView = transaction.time(simpleDateFormat.parse(date).getTime());
 
                 Station station = (Station) timeView.lookup("/stations["+stationId+"]");

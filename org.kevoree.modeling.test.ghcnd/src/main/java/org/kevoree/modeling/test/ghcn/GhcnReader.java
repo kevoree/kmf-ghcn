@@ -22,6 +22,7 @@ public class GhcnReader {
     private String dbLocation = "GhcnLevelDB";
     private GhcnTransactionManager tm;
     private SimpleDateFormat simpleDateFormat;
+    private GhcnTransaction transaction;
 
     public GhcnReader() {
         initFactory();
@@ -41,20 +42,13 @@ public class GhcnReader {
             simpleDateFormat = new SimpleDateFormat("yyyyMMd");
             simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
 
-            GhcnTransaction transaction = tm.createTransaction();
+            transaction = tm.createTransaction();
             GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
             DataSet root = (DataSet)rootTimeView.lookup("/");
             if(root == null) {
                 System.err.println("Root not found !");
                 System.exit(-1);
-            /*
-            root = rootTimeView.factory().createDataSet();
-            rootTimeView.root(root);
-            rootTimeView.commit();
-            */
             }
-
-            //System.out.println(baseFactory.createJSONSerializer().serialize(baseFactory.lookup("/")));
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -63,9 +57,7 @@ public class GhcnReader {
 
     public void printCountries() {
         try {
-            GhcnTransaction transaction = tm.createTransaction();
-            GhcnTimeView rootTimeView = null;
-            rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
+            GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
             DataSet root = (DataSet)rootTimeView.lookup("/");
             int i = 0;
             for(Country c : root.getCountries()) {
@@ -85,9 +77,7 @@ public class GhcnReader {
 
     public void printStates() {
         try {
-            GhcnTransaction transaction = tm.createTransaction();
-            GhcnTimeView rootTimeView = null;
-            rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
+            GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
             DataSet root = (DataSet)rootTimeView.lookup("/");
             int i = 0;
             for(USState state : root.getUsStates()) {
@@ -127,12 +117,90 @@ public class GhcnReader {
 
 
     public void printDailyRecords() {
+        try {
+            final int[] records = new int[1];
+            final GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
+            for(final Station station : ((DataSet)rootTimeView.lookup("/")).getStations()) {
+                //System.out.println("Station:" + station.getName());
+                if(station.next() != null) {
+                    GhcnTransaction stationTransaction = tm.createTransaction();
+                    GhcnTimeView tv = stationTransaction.time(station.next().getNow());
 
+                    Station temporizedStation = (Station) tv.lookup(station.path());
+
+                    for (final Record rc : temporizedStation.getLastRecords()) {
+                        final GhcnTransaction recordTransaction = tm.createTransaction();
+                        GhcnTimeView recordView = recordTransaction.time(rc.getNow());
+                        Record timedRecord = (Record) recordView.lookup(rc.path());
+
+                        /*
+                        TimeMeta recordTimes = ((TimeAwareKMFFactory)recordView).getTimeTree(timedRecord.path());
+                        recordTimes.walkAsc(new TimeWalker() {
+                            @Override
+                            public void walk(@JetValueParameter(name = "timePoint") long l) {
+                                records[0]++;
+                                GhcnTimeView recordView = recordTransaction.time(l);
+                                Record timedRecord = (Record) recordView.lookup(rc.path());
+                                StringBuilder sb = new StringBuilder();
+                                sb.append("Recorded on ");
+                                sb.append(simpleDateFormat.format(timedRecord.getNow()));
+                                sb.append(" on Station ");
+                                sb.append(station.getName() + "("+station.getId()+")");
+                                sb.append("[");
+                                sb.append("Type:");
+                                sb.append(Element.parse(timedRecord.getType()).name);
+                                sb.append(", Quality:");
+                                sb.append(Quality.parse(timedRecord.getQuality()).name);
+                                sb.append(", Measurement:");
+                                sb.append(Measurement.parse(timedRecord.getMeasurement()).name);
+                                sb.append(", Source:");
+                                sb.append(Source.parse(timedRecord.getSource()).name);
+                                sb.append(", Value:");
+                                sb.append(timedRecord.getValue());
+                                sb.append("]");
+                                System.out.println(sb.toString());
+                            }
+                        });
+                        */
+
+                        do {
+                            //timedRecord = (Record) recordView.lookup(timedRecord.path());
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("Recorded on ");
+                            sb.append(simpleDateFormat.format(timedRecord.getNow()));
+                            sb.append(" on Station ");
+                            sb.append(station.getName() + "("+station.getId()+")");
+                            sb.append("[");
+                            sb.append("Type:");
+                            sb.append(Element.parse(timedRecord.getType()).name);
+                            sb.append(", Quality:");
+                            sb.append(Quality.parse(timedRecord.getQuality()).name);
+                            sb.append(", Measurement:");
+                            sb.append(Measurement.parse(timedRecord.getMeasurement()).name);
+                            sb.append(", Source:");
+                            sb.append(Source.parse(timedRecord.getSource()).name);
+                            sb.append(", Value:");
+                            sb.append(timedRecord.getValue());
+                            sb.append("]");
+                            System.out.println(sb.toString());
+                            records[0]++;
+                            timedRecord = timedRecord.next();
+                        } while (timedRecord != null);
+
+                        recordTransaction.close();
+                    }
+                    stationTransaction.close();
+                }
+            }
+            System.out.println("Records:" + records[0]);
+
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
     }
 
     public void printDates() {
         try {
-            GhcnTransaction transaction = tm.createTransaction();
             final GhcnTimeView rootTimeView = transaction.time(simpleDateFormat.parse("18000101").getTime());
             final TimeMeta timeMetaRoot = ((TimeAwareKMFFactory)rootTimeView).getTimeTree("#global");
             timeMetaRoot.walkAsc(new TimeWalker() {

@@ -13,11 +13,11 @@ public class GhcnReaderTets {
     public void mainTest() {
 
         GhcnReader ghcn = new GhcnReader();
-        ghcn.printDates();
+        //ghcn.printDates();
         //ghcn.printCountries();
         //ghcn.printStates();
         //ghcn.printStations();
-       // ghcn.printDailyRecords();
+        ghcn.printDailyRecords();
 
     }
 
