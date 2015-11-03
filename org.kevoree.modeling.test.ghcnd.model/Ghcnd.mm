@@ -1,46 +1,37 @@
 class kmf.ghcn.DataSet {
-    @contained
-    stations : kmf.ghcn.Station[0,*]
-    @contained
-    countries : kmf.ghcn.Country[0,*]
-    @contained
-    usStates : kmf.ghcn.USState[0,*]
+    rel stations : kmf.ghcn.Station
+    rel countries : kmf.ghcn.Country
+    rel usStates : kmf.ghcn.USState
 }
 
-class  kmf.ghcn.Station {
-    @id
-    id : String
-    country : kmf.ghcn.Country[0,1]
-    latitude     : Float
-    longitude : Float
-    elevation : Float
-    state : kmf.ghcn.USState[0,1]
-    name : String
-    gsnFlag : Bool
-    hcnFlag : Bool
-    wmoId : String
-
-    @contained
-    lastRecords : kmf.ghcn.Record[0,*]
+class kmf.ghcn.Station {
+    att id : String
+    att name : String
+    att gsnFlag : Bool
+    att hcnFlag : Bool
+    att wmoId : String
+    att latitude : Double
+    att longitude : Double
+    att elevation : Double
+    rel state : kmf.ghcn.USState with maxBound 1
+    rel country : kmf.ghcn.Country with maxBound 1
+    rel records : kmf.ghcn.Record
 }
 
 class  kmf.ghcn.Country {
-    @id
-    id : String
-    name : String
+    att id : String
+    att name : String
 }
 
 class  kmf.ghcn.USState {
-    @id
-    id : String
-    name : String
+    att id : String
+    att name : String
 }
 
 class  kmf.ghcn.Record {
-    @id
-    type : String
-    value : String
-    measurement : String
-    quality : String
-    source : String
+    att type : String
+    att value : String
+    att measurement : String
+    att quality : String
+    att source : String
 }

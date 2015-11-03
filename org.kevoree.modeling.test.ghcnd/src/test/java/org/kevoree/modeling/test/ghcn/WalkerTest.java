@@ -1,34 +1,11 @@
 package org.kevoree.modeling.test.ghcn;
 
-import jet.runtime.typeinfo.JetValueParameter;
-import kmf.ghcn.DataSet;
-import kmf.ghcn.Record;
-import kmf.ghcn.factory.GhcnTimeView;
-import kmf.ghcn.factory.GhcnTransaction;
-import kmf.ghcn.factory.GhcnTransactionManager;
-import org.jetbrains.annotations.NotNull;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.kevoree.modeling.api.KMFContainer;
-import org.kevoree.modeling.api.time.TimeAwareKMFContainer;
-import org.kevoree.modeling.api.time.TimeAwareKMFFactory;
-import org.kevoree.modeling.api.time.TimeWalker;
-import org.kevoree.modeling.api.time.blob.TimeMeta;
-import org.kevoree.modeling.datastores.leveldb.LevelDbDataStore;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
-
-import static org.junit.Assert.assertTrue;
 
 /**
  * Created by gregory.nain on 31/07/2014.
  */
 public class WalkerTest {
-
+/*
     private static String dbLocation = "GhcnLevelDB";
     private static GhcnTransactionManager tm;
     private static SimpleDateFormat simpleDateFormat;
@@ -279,6 +256,7 @@ public class WalkerTest {
             e.printStackTrace();
         }
     }
+    */
 
 
 }

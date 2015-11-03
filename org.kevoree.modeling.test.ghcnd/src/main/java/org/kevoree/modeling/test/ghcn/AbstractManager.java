@@ -1,10 +1,8 @@
 package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.DataSet;
-import kmf.ghcn.factory.GhcnFactory;
-import kmf.ghcn.factory.GhcnTimeView;
-import kmf.ghcn.factory.GhcnTransactionManager;
-import org.kevoree.modeling.api.time.TimeView;
+import kmf.ghcn.GhcndUniverse;
+import kmf.ghcn.GhcndView;
 import org.kevoree.modeling.test.ghcn.utils.UpdateResult;
 
 import java.text.SimpleDateFormat;
@@ -15,19 +13,16 @@ import java.util.TimeZone;
  */
 public abstract class AbstractManager implements Runnable{
 
-    protected GhcnTimeView rootTimeView;
-    protected GhcnTransactionManager tm;
+    protected GhcndView rootTimeView;
+    protected GhcndUniverse universe;
     protected DataSet root;
     protected UpdateResult result;
     protected SimpleDateFormat simpleDateFormat;
 
-    public AbstractManager(GhcnTransactionManager tm) {
-        this.tm = tm;
+    public AbstractManager(GhcndUniverse universe) {
+        this.universe = universe;
         simpleDateFormat = new SimpleDateFormat("yyyyMMd");
         simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-        //this.rootTimeView =  factory.time("0");
-        //root = (DataSet)rootTimeView.lookup("/");
-
         result = new UpdateResult();
     }
 

@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * Created by gregory.nain on 23/07/2014.
  */
-public class FtpClient {
+public class MyFtpClient {
 
     private String serverAddress;
     private String remoteDirectory;
@@ -27,7 +27,7 @@ public class FtpClient {
     private boolean initiated = false;
     private FTPClient ftp;
 
-    public FtpClient(String serverAddress, String remoteDirectory, String localDirectory, String userId, String password) {
+    public MyFtpClient(String serverAddress, String remoteDirectory, String localDirectory, String userId, String password) {
         this.serverAddress = serverAddress;
         this.remoteDirectory = remoteDirectory;
         this.localDirectory = localDirectory;
@@ -45,13 +45,14 @@ public class FtpClient {
                 ftp.connect(serverAddress);
                 //login to server
                 ftp.enterLocalPassiveMode();
+                System.out.println("Attempting connection to " + serverAddress);
 
                 if (userId != null && password != null) {
                     if (!ftp.login(userId, password)) {
                         ftp.logout();
                     }
                 } else {
-                    if(!ftp.login("anonymous","hey@hey.com")) {
+                    if(!ftp.login("anonymous","test@test.com")) {
                         ftp.logout();
                     }
                 }

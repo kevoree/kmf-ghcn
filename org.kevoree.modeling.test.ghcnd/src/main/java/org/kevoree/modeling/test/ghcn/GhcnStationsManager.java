@@ -1,15 +1,21 @@
 package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.*;
-import kmf.ghcn.factory.GhcnFactory;
-import kmf.ghcn.factory.GhcnTransaction;
-import kmf.ghcn.factory.GhcnTransactionManager;
-import org.kevoree.modeling.test.ghcn.utils.FtpClient;
+import kmf.ghcn.impl.CountryImpl;
+import kmf.ghcn.meta.MetaCountry;
+import kmf.ghcn.meta.MetaDataSet;
+import kmf.ghcn.meta.MetaStation;
+import kmf.ghcn.meta.MetaUSState;
+import org.kevoree.modeling.KCallback;
+import org.kevoree.modeling.KObject;
+import org.kevoree.modeling.defer.KDefer;
+import org.kevoree.modeling.test.ghcn.utils.MyFtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
  * Created by gregory.nain on 23/07/2014.
@@ -21,94 +27,138 @@ public class GhcnStationsManager extends AbstractManager {
     protected static String localDirectory = "/tmp/ghcn";
     protected static String fileName = "ghcnd-stations.txt";
 
-   public GhcnStationsManager(GhcnTransactionManager tm) {
-        super(tm);
+    public GhcnStationsManager(GhcndUniverse universe) {
+        super(universe);
     }
 
 
     public void run() {
-        FtpClient ftp = null;
-        BufferedReader reader = null;
+        final Stats stats = new Stats(getClass().getSimpleName());
+
         try {
-            GhcnTransaction transaction = tm.createTransaction();
-            this.rootTimeView =  transaction.time(simpleDateFormat.parse("18000101").getTime());
-
-        //root = (DataSet)baseFactory.lookup("/");
-        root = (DataSet)rootTimeView.lookup("/");
-        if(root == null) {
-            System.err.println("Could not reach the root");
-        }
-
-        Stats stats = new Stats(getClass().getSimpleName());
-            if(root != null) {
-
-
-                ftp = new FtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
-                System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
-                long startTime = System.currentTimeMillis();
-                File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
-                stats.time_download = System.currentTimeMillis() - startTime;
-                System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
-
-
-                if (countriesFile != null && countriesFile.exists()) {
-
-                    reader = new BufferedReader(new FileReader(countriesFile));
-                    String line = null;
-                    ArrayList<String> lines = new ArrayList<String>();
-                    startTime = System.currentTimeMillis();
-                    while ((line = reader.readLine()) != null) {
-                        lines.add(line);
-                    }
-                    stats.time_readFile = System.currentTimeMillis() - startTime;
-
-
-                    startTime = System.currentTimeMillis();
-                    for(String l : lines) {
-                    //for(int i = 0; i < 35000; i++) {
-                        //processLine(lines.get(i), stats);
-                        processLine(l, stats);
-                        if( stats.insertions != 0 && stats.insertions % 10000 == 0){
-                            System.out.println("Inserted " + stats.insertions + "/" + lines.size());
-                        }
-                    }
-                    stats.time_insert = System.currentTimeMillis() - startTime;
-
-
-                    System.out.println("Statioons Size:" + root.getStations().size());
-                    startTime = System.currentTimeMillis();
-                    transaction.commit();
-                    transaction.close();
-                    //baseFactory.commit();
-                    stats.time_commit = System.currentTimeMillis() - startTime;
-                } else {
-                    System.err.println("Country file not available locally !");
-                }
-
-            }
-
-            result.statistics.add(stats);
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            this.rootTimeView = universe.time(simpleDateFormat.parse("18000101").getTime());
         } catch (ParseException e) {
             e.printStackTrace();
-        } finally {
-            if(ftp != null) {
-                ftp.disconnect();
-            }
-            if(reader != null) {
+        }
+        rootTimeView.getRoot(new KCallback<KObject>() {
+            public void on(KObject results) {
+
+                MyFtpClient ftp = null;
+                BufferedReader reader = null;
+                if (results == null) {
+                    System.err.println("Could not reach the root");
+                }
                 try {
-                    reader.close();
+                    root = (DataSet) results;
+                    if (root != null) {
+                        ftp = new MyFtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
+                        System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
+                        long startTime = System.currentTimeMillis();
+                        final File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
+                        stats.time_download = System.currentTimeMillis() - startTime;
+                        System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
+
+
+                        if (countriesFile != null && countriesFile.exists()) {
+
+                            reader = new BufferedReader(new FileReader(countriesFile));
+                            final ArrayList<String> lines = new ArrayList<String>();
+
+                            KDefer defer = root.manager().model().defer();
+                            root.traversal().traverse(MetaDataSet.REL_COUNTRIES).then(defer.waitResult());
+                            root.traversal().traverse(MetaDataSet.REL_USSTATES).then(defer.waitResult());
+                            root.traversal().traverse(MetaDataSet.REL_STATIONS).then(defer.waitResult());
+
+                            final BufferedReader finalReader = reader;
+                            defer.then(new KCallback<Object[]>() {
+                                public void on(Object[] objects) {
+
+                                    KObject[] countries = null;
+                                    KObject[] states = null;
+                                    KObject[] existingStations = null;
+                                    if (objects.length > 0 && objects[0] != null) {
+                                        countries = (KObject[]) objects[0];
+                                    }
+                                    if (objects.length > 1 && objects[1] != null) {
+                                        states = (KObject[]) objects[1];
+                                    }
+                                    if (objects.length > 2 && objects[2] != null) {
+                                        existingStations = (KObject[]) objects[2];
+                                    }
+
+                                    long startTime = System.currentTimeMillis();
+                                    String line;
+                                    try {
+                                        while ((line = finalReader.readLine()) != null) {
+                                            lines.add(line);
+                                        }
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                    stats.time_readFile = System.currentTimeMillis() - startTime;
+
+
+                                    startTime = System.currentTimeMillis();
+                                    for (String l : lines) {
+                                        //for(int i = 0; i < 35000; i++) {
+                                        //processLine(lines.get(i), stats);
+                                        processLine(l, stats, existingStations, countries, states);
+                                        if (stats.insertions != 0 && stats.insertions % 10000 == 0) {
+                                            System.out.println("Inserted " + stats.insertions + "/" + lines.size());
+                                            root.manager().save(new KCallback<Throwable>() {
+                                                public void on(Throwable throwable) {
+                                                    if (throwable != null) {
+                                                        throwable.printStackTrace();
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                    stats.time_insert = System.currentTimeMillis() - startTime;
+
+
+                                    System.out.println("Stations Size:" + root.sizeOfStations());
+                                    startTime = System.currentTimeMillis();
+                                    root.manager().save(new KCallback<Throwable>() {
+                                        public void on(Throwable throwable) {
+                                            if (throwable != null) {
+                                                throwable.printStackTrace();
+                                            }
+                                        }
+                                    });
+                                    stats.time_commit = System.currentTimeMillis() - startTime;
+
+
+                                }
+                            });
+                        } else {
+                            System.err.println("Country file not available locally !");
+                        }
+
+                    }
+
+                    result.statistics.add(stats);
+
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
                 } catch (IOException e) {
                     e.printStackTrace();
+                } finally {
+                    if (ftp != null) {
+                        ftp.disconnect();
+                    }
+                    if (reader != null) {
+                        try {
+                            reader.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
-        }
-    }
 
+        });
+    }
 
 
     /*
@@ -122,62 +172,70 @@ public class GhcnStationsManager extends AbstractManager {
     * HCNFLAG      77-79   Character
     * WMOID        81-85   Character
     * */
-    private void processLine(String line, Stats stats) {
-        //System.out.println("Line("+line.length()+"):" + line);
-        String id = line.substring(0,11).trim();
-        String lat = line.substring(12,20).trim();
-        String lon = line.substring(21,30).trim();
-        String elv = line.substring(31,37).trim();
-        String state = line.substring(38,40).trim();
-        String name = line.substring(41,71).trim();
-        String gsnFlag = line.substring(72,75).trim();
-        String hcnFlag = line.substring(76,79).trim();
-        String wmoId = line.substring(80,line.length()).trim();
 
-        stats.lookups++;
-        if(rootTimeView.lookup("/stations["+id+"]") == null) {
-        //if(baseFactory.lookup("/stations["+id+"]") == null) {
-            Station station = rootTimeView.createStation()
-            //Station station = baseFactory.createStation()
-                    .withId(id)
-                    .withGsnFlag(!"".equals(gsnFlag))
-                    .withHcnFlag(!"".equals(hcnFlag));
+    private void processLine(final String line, final Stats stats, final KObject[] existingStations, final KObject[] countries, final KObject[] states) {
 
-            Country c = (Country)rootTimeView.lookup("/countries[" + id.substring(0,2) + "]");
+        final String id = line.substring(0, 11).trim();
 
-            //Country c = (Country)baseFactory.lookup("/countries[" + id.substring(0,2) + "]");
-            if(c != null) {
-                station.setCountry(c);
+        boolean stationExists = false;
+        for (KObject station : existingStations) {
+            if (station.get(MetaStation.ATT_ID).equals(id)) {
+                stationExists = true;
+                break;
             }
-            if(!"".equals(name)) {
+        }
+        if (!stationExists) {
+            //System.out.println("Line("+line.length()+"):" + line);
+            final String lat = line.substring(12, 20).trim();
+            final String lon = line.substring(21, 30).trim();
+            final String elv = line.substring(31, 37).trim();
+            final String state = line.substring(38, 40).trim();
+            final String name = line.substring(41, 71).trim();
+            final String gsnFlag = line.substring(72, 75).trim();
+            final String hcnFlag = line.substring(76, 79).trim();
+            final String wmoId = line.substring(80, line.length()).trim();
+
+
+            final Station station = rootTimeView.createStation()
+                    .setId(id)
+                    .setGsnFlag(!"".equals(gsnFlag))
+                    .setHcnFlag(!"".equals(hcnFlag));
+
+            if (!"".equals(name)) {
                 station.setName(name);
             }
-            if(!"".equals(lat)) {
-                station.setLatitude(Float.valueOf(lat));
+            if (!"".equals(lat)) {
+                station.setLatitude(Double.valueOf(lat));
             }
-            if(!"".equals(lon)) {
-                station.setLongitude(Float.valueOf(lon));
+            if (!"".equals(lon)) {
+                station.setLongitude(Double.valueOf(lon));
             }
-            if(!"".equals(elv)) {
-                station.setElevation(Float.valueOf(elv));
+            if (!"".equals(elv)) {
+                station.setElevation(Double.valueOf(elv));
             }
 
-            if(!"".equals(state)) {
-                USState s = (USState)rootTimeView.lookup("/usStates[" + state + "]");
-                //USState s = (USState)baseFactory.lookup("/usStates[" + state + "]");
-                if(s != null) {
-                    station.setState(s);
+            if (!"".equals(wmoId)) {
+                station.setWmoId(wmoId);
+            }
+            String localId = id.substring(0, 2);
+            for (KObject c : countries) {
+                if (c.get(MetaCountry.ATT_ID).equals(localId)) {
+                    station.addCountry((Country) c);
+                    break;
                 }
             }
-            if(!"".equals(wmoId)) {
-                station.setWmoId(wmoId);
+            if (!"".equals(state)) {
+                for (KObject s : states) {
+                    if (s.get(MetaUSState.ATT_ID).equals(state)) {
+                        station.addState((USState) s);
+                        break;
+                    }
+                }
             }
 
             root.addStations(station);
             stats.insertions++;
-            //System.out.println(baseFactory.createJSONSerializer().serialize(station));
         }
+
     }
-
-
 }

@@ -1,6 +1,7 @@
 package org.kevoree.modeling.test.ghcn;
 
 import org.junit.Test;
+import org.kevoree.modeling.KCallback;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -15,7 +16,7 @@ public class GhcnLoaderTest {
 
     private void deleteBase() throws IOException {
         Path directory = Paths.get("GhcnLevelDB");
-        if(directory.toFile().exists()) {
+        if (directory.toFile().exists()) {
             Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -33,28 +34,44 @@ public class GhcnLoaderTest {
         }
     }
 
-    @Test
+    //@Test
     public void mainTest() throws IOException {
 
-        deleteBase();
+        //deleteBase();
 
-        GhcnLoader ghcn = new GhcnLoader();
-        ghcn.updateCountries();
-        ghcn.updateUSStates();
-        ghcn.updateStations();
-        ghcn.updateDaily();
+        final GhcnLoader ghcn = new GhcnLoader();
+        ghcn.initFactory(new KCallback() {
+            public void on(Object o) {
+                // ghcn.updateCountries();
+                //ghcn.updateUSStates();
+                //ghcn.updateStations();
+                ghcn.updateDaily();
 
-        ghcn.waitCompletion();
-        ghcn.free();
+                ghcn.waitCompletion();
+                ghcn.free();
 
+            }
+        });
+
+/*
         GhcnReader reader = new GhcnReader();
         reader.printDates();
-
+*/
         //reader.printCountries();
         //reader.printStates();
         //reader.printStations();
 
+    }
 
+    public static void main(String[] args) {
+        try {
+
+            GhcnLoaderTest test = new GhcnLoaderTest();
+            test.mainTest();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 

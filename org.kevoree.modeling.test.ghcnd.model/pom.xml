@@ -7,31 +7,22 @@
 
     <groupId>org.kevoree.modeling.test</groupId>
     <artifactId>org.kevoree.modeling.test.ghcnd.model</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
             <groupId>org.kevoree.modeling</groupId>
             <artifactId>org.kevoree.modeling.microframework</artifactId>
-            <version>2.4.2-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib</artifactId>
-            <version>${kotlin.version}</version>
+            <version>4.26.1-SNAPSHOT</version>
         </dependency>
     </dependencies>
-    <properties>
-        <kotlin.version>0.8.11</kotlin.version>
-    </properties>
 
     <build>
         <plugins>
             <plugin>
                 <groupId>org.kevoree.modeling</groupId>
-                <artifactId>org.kevoree.modeling.kotlin.generator.mavenplugin</artifactId>
-                <version>2.4.2-SNAPSHOT</version>
-                <extensions>true</extensions>
+                <artifactId>org.kevoree.modeling.generator.mavenplugin</artifactId>
+                <version>4.26.1-SNAPSHOT</version>
                 <executions>
                     <execution>
                         <id>ModelGen</id>
@@ -39,13 +30,8 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <!--
-                            <ecore>CyrMM.mm</ecore>
-                            -->
-                            <ecore>Ghcnd.mm</ecore>
-                            <timeAware>true</timeAware>
-                            <persistence>true</persistence>
-                            <metaModelQualifiedName>kmf.ghcn</metaModelQualifiedName>
+                            <metaModelFile>Ghcnd.mm</metaModelFile>
+                            <metaModelQualifiedName>kmf.ghcn.Ghcnd</metaModelQualifiedName>
                         </configuration>
                     </execution>
                 </executions>

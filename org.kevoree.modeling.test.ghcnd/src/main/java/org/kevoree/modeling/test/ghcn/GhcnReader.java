@@ -1,24 +1,11 @@
 package org.kevoree.modeling.test.ghcn;
 
-import jet.runtime.typeinfo.JetValueParameter;
-import kmf.ghcn.*;
-import kmf.ghcn.factory.*;
-import org.jetbrains.annotations.NotNull;
-import org.kevoree.modeling.api.time.TimeAwareKMFFactory;
-import org.kevoree.modeling.api.time.TimeWalker;
-import org.kevoree.modeling.api.time.blob.TimeMeta;
-import org.kevoree.modeling.datastores.leveldb.LevelDbDataStore;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
 
 /**
  * Created by gregory.nain on 22/07/2014.
  */
 public class GhcnReader {
-
+/*
     private String dbLocation = "GhcnLevelDB";
     private GhcnTransactionManager tm;
     private SimpleDateFormat simpleDateFormat;
@@ -133,36 +120,6 @@ public class GhcnReader {
                         GhcnTimeView recordView = recordTransaction.time(rc.getNow());
                         Record timedRecord = (Record) recordView.lookup(rc.path());
 
-                        /*
-                        TimeMeta recordTimes = ((TimeAwareKMFFactory)recordView).getTimeTree(timedRecord.path());
-                        recordTimes.walkAsc(new TimeWalker() {
-                            @Override
-                            public void walk(@JetValueParameter(name = "timePoint") long l) {
-                                records[0]++;
-                                GhcnTimeView recordView = recordTransaction.time(l);
-                                Record timedRecord = (Record) recordView.lookup(rc.path());
-                                StringBuilder sb = new StringBuilder();
-                                sb.append("Recorded on ");
-                                sb.append(simpleDateFormat.format(timedRecord.getNow()));
-                                sb.append(" on Station ");
-                                sb.append(station.getName() + "("+station.getId()+")");
-                                sb.append("[");
-                                sb.append("Type:");
-                                sb.append(Element.parse(timedRecord.getType()).name);
-                                sb.append(", Quality:");
-                                sb.append(Quality.parse(timedRecord.getQuality()).name);
-                                sb.append(", Measurement:");
-                                sb.append(Measurement.parse(timedRecord.getMeasurement()).name);
-                                sb.append(", Source:");
-                                sb.append(Source.parse(timedRecord.getSource()).name);
-                                sb.append(", Value:");
-                                sb.append(timedRecord.getValue());
-                                sb.append("]");
-                                System.out.println(sb.toString());
-                            }
-                        });
-                        */
-
                         do {
                             //timedRecord = (Record) recordView.lookup(timedRecord.path());
                             StringBuilder sb = new StringBuilder();
@@ -216,5 +173,6 @@ public class GhcnReader {
         }
 
     }
+    */
 
 }
