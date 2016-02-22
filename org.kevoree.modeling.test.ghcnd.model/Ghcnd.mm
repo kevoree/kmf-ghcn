@@ -1,11 +1,6 @@
-class kmf.ghcn.DataSet {
-    rel stations : kmf.ghcn.Station
-    rel countries : kmf.ghcn.Country
-    rel usStates : kmf.ghcn.USState
-}
 
 class kmf.ghcn.Station {
-    att id : String
+    att id : String with index
     att name : String
     att gsnFlag : Bool
     att hcnFlag : Bool
@@ -19,12 +14,12 @@ class kmf.ghcn.Station {
 }
 
 class  kmf.ghcn.Country {
-    att id : String
+    att id : String with index
     att name : String
 }
 
 class  kmf.ghcn.USState {
-    att id : String
+    att id : String with index
     att name : String
 }
 

@@ -1,16 +1,15 @@
 package org.kevoree.modeling.test.ghcn;
 
 import kmf.ghcn.*;
-import kmf.ghcn.meta.MetaDataSet;
 import kmf.ghcn.meta.MetaRecord;
 import kmf.ghcn.meta.MetaStation;
 import org.kevoree.modeling.KCallback;
+import org.kevoree.modeling.KConfig;
 import org.kevoree.modeling.KObject;
 import org.kevoree.modeling.test.ghcn.utils.MyFtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
-import java.text.ParseException;
 import java.util.ArrayList;
 
 /**
@@ -22,74 +21,35 @@ public class GhcnDailyManager extends AbstractManager {
     protected static String remoteDirectory = "/pub/data/ghcn/daily/all";
     protected static String localDirectory = "/tmp/ghcn";
 
-    public GhcnDailyManager(GhcndUniverse universe) {
-        super(universe);
+    public GhcnDailyManager(GhcndModel model) {
+        super(model);
 
     }
 
     public void run() {
 
         final Stats stats = new Stats(getClass().getSimpleName());
-        try {
-            this.rootTimeView = universe.time(simpleDateFormat.parse("18000101").getTime());
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        rootTimeView.getRoot(new KCallback<KObject>() {
-            public void on(KObject results) {
 
-                MyFtpClient ftp = null;
-                BufferedReader reader = null;
-                if (results == null) {
-                    System.err.println("Could not reach the root");
-                }
-                try {
-                    root = (DataSet) results;
-                    if (root != null) {
-                        ftp = new MyFtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
-                        final MyFtpClient finalFTP = ftp;
-                        final int[] i = new int[1];
-
-                        root.getStations(new KCallback<Station[]>() {
-                            public void on(Station[] stations) {
-                                for (int i = 0; i < stations.length; i++) {
-                                    if (i < 2) {
-                                        Station station = stations[i];
-                                        String stationId = station.getId();
-                                        String stationFileName = stationId + ".dly";
-                                        processFile(finalFTP, stationFileName, stats, root);
-                                        result.statistics.add(stats);
-                                    }
-                                }
-                            }
-                        });
-
-
-                        root.manager().save(new KCallback<Throwable>() {
-                            public void on(Throwable throwable) {
-                                if (throwable != null) {
-                                    throwable.printStackTrace();
-                                }
-                            }
-                        });
-                    }
-                } finally {
-                    if (ftp != null) {
-                        ftp.disconnect();
-                    }
-                    if (reader != null) {
-                        try {
-                            reader.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+        MyFtpClient ftp = new MyFtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
+        final MyFtpClient finalFTP = ftp;
+        model.findAll(MetaStation.getInstance(), 0, KConfig.BEGINNING_OF_TIME, new KCallback<KObject[]>() {
+            public void on(KObject[] kObjects) {
+                for (int i = 0; i < kObjects.length; i++) {
+                    if (i < 2) {
+                        Station station = (Station) kObjects[i];
+                        String stationId = station.getId();
+                        String stationFileName = stationId + ".dly";
+                        processFile(finalFTP, stationFileName, stats);
+                        result.statistics.add(stats);
                     }
                 }
+                model.save(null);
             }
         });
+
     }
 
-    private void processFile(MyFtpClient ftp, String fileName, Stats stats, DataSet dimension) {
+    private void processFile(MyFtpClient ftp, String fileName, Stats stats) {
         try {
             System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
             long startTime = System.currentTimeMillis();
@@ -109,7 +69,7 @@ public class GhcnDailyManager extends AbstractManager {
                 startTime = System.currentTimeMillis();
                 int lineNum = 0;
                 for (String l : lines) {
-                    processLine(l, stats, dimension);
+                    processLine(l, stats);
                     lineNum++;
                     if (stats.insertions != 0 && stats.insertions % 50 == 0) {
                         System.out.println("Processed " + lineNum + "/" + lines.size() + " Inserted " + stats.insertions + "/" + 31 * lines.size());
@@ -118,7 +78,7 @@ public class GhcnDailyManager extends AbstractManager {
                 stats.time_insert = System.currentTimeMillis() - startTime;
 
                 startTime = System.currentTimeMillis();
-                dimension.manager().save(null);
+                model.save(null);
                 stats.time_commit = System.currentTimeMillis() - startTime;
             } else {
                 System.err.println("Measures file not available locally !");
@@ -150,7 +110,7 @@ MFLAG31    267-267   Character
 QFLAG31    268-268   Character
 SFLAG31    269-269   Character
     * */
-    private void processLine(final String line, final Stats stats, DataSet dimension) {
+    private void processLine(final String line, final Stats stats) {
         try {
             final String stationId = line.substring(0, 11).trim();
             final String year = line.substring(11, 15).trim();
@@ -171,35 +131,34 @@ SFLAG31    269-269   Character
                     continue;
                 }
 
-                final GhcndView timeView = (GhcndView) dimension.manager().model().universe(0).time(simpleDateFormat.parse(date).getTime());
+                final long now = simpleDateFormat.parse(date).getTime();
 
-                timeView.getRoot(new KCallback<KObject>() {
+
+                model.find(MetaStation.getInstance(), 0, now, "id=" + stationId, new KCallback<KObject>() {
                     public void on(KObject kObject) {
-                        kObject.traversal().traverse(MetaDataSet.REL_STATIONS).withAttribute(MetaStation.ATT_ID, stationId).then(new KCallback<KObject[]>() {
-                            public void on(KObject[] results) {
-                                if (results != null && results.length != 0) {
-                                    final Station station = (Station) results[0];
-                                    if (station != null) {
-                                        station.traversal().traverse(MetaStation.REL_RECORDS).withAttribute(MetaRecord.ATT_TYPE, elementType).then(new KCallback<KObject[]>() {
-                                            public void on(KObject[] records) {
-                                                if (records != null && records.length != 0) {
-                                                    Record record = (Record) records[0];
-                                                    record.setValue(value).setQuality(qFlag).setSource(sFlag).setMeasurement(mFlag);
-                                                    stats.insertions++;
-                                                } else {
-                                                    Record record = timeView.createRecord().setType(elementType).setValue(value).setQuality(qFlag).setSource(sFlag).setMeasurement(mFlag);
-                                                    station.addRecords(record);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        System.out.println("Station not found at time point:" + timeView.now());
+                        if (kObject != null) {
+                            final Station station = (Station) kObject;
+                            if (station != null) {
+                                station.traversal().traverse(MetaStation.REL_RECORDS).withAttribute(MetaRecord.ATT_TYPE, elementType).then(new KCallback<KObject[]>() {
+                                    public void on(KObject[] records) {
+                                        if (records != null && records.length != 0) {
+                                            Record record = (Record) records[0];
+                                            record.setValue(value).setQuality(qFlag).setSource(sFlag).setMeasurement(mFlag);
+                                            stats.insertions++;
+                                        } else {
+                                            Record record = model.createRecord(0, now).setType(elementType).setValue(value).setQuality(qFlag).setSource(sFlag).setMeasurement(mFlag);
+                                            station.addRecords(record);
+
+                                        }
                                     }
-                                }
+                                });
+                            } else {
+                                System.out.println("Station not found at time point:" + now);
                             }
-                        });
+                        }
                     }
                 });
+
             }
         } catch (Exception e) {
             e.printStackTrace();

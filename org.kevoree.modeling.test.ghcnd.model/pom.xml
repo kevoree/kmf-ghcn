@@ -4,16 +4,20 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.kevoree.modeling.ghcnd</groupId>
+        <artifactId>ghcnd.root</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
 
-    <groupId>org.kevoree.modeling.test</groupId>
-    <artifactId>org.kevoree.modeling.test.ghcnd.model</artifactId>
-    <version>2.0-SNAPSHOT</version>
+    <artifactId>ghcnd.model</artifactId>
 
     <dependencies>
         <dependency>
             <groupId>org.kevoree.modeling</groupId>
-            <artifactId>org.kevoree.modeling.microframework</artifactId>
-            <version>4.26.1-SNAPSHOT</version>
+            <artifactId>microframework</artifactId>
+            <version>${kmf.version}</version>
         </dependency>
     </dependencies>
 
@@ -21,8 +25,8 @@
         <plugins>
             <plugin>
                 <groupId>org.kevoree.modeling</groupId>
-                <artifactId>org.kevoree.modeling.generator.mavenplugin</artifactId>
-                <version>4.26.1-SNAPSHOT</version>
+                <artifactId>generator.mavenplugin</artifactId>
+                <version>${kmf.version}</version>
                 <executions>
                     <execution>
                         <id>ModelGen</id>
@@ -39,27 +43,5 @@
         </plugins>
     </build>
 
-
-    <repositories>
-        <repository>
-            <id>Oss</id>
-            <url>https://oss.sonatype.org/content/repositories/releases</url>
-        </repository>
-        <repository>
-            <id>Oss-S</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </repository>
-    </repositories>
-
-    <pluginRepositories>
-        <pluginRepository>
-            <id>Oss-P</id>
-            <url>https://oss.sonatype.org/content/repositories/releases</url>
-        </pluginRepository>
-        <pluginRepository>
-            <id>Oss-P-S</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </pluginRepository>
-    </pluginRepositories>
 
 </project>

@@ -1,17 +1,16 @@
 package org.kevoree.modeling.test.ghcn;
 
-import kmf.ghcn.DataSet;
-import kmf.ghcn.GhcndUniverse;
-import kmf.ghcn.meta.MetaDataSet;
+import kmf.ghcn.GhcndModel;
 import kmf.ghcn.meta.MetaUSState;
 import org.kevoree.modeling.KCallback;
+import org.kevoree.modeling.KConfig;
 import org.kevoree.modeling.KObject;
 import org.kevoree.modeling.test.ghcn.utils.MyFtpClient;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 
 import java.io.*;
-import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Created by gregory.nain on 23/07/2014.
@@ -23,89 +22,67 @@ public class GhcnUSStatesManager extends AbstractManager {
     protected static String localDirectory = "/tmp/ghcn";
     protected static String fileName = "ghcnd-states.txt";
 
-    public GhcnUSStatesManager(GhcndUniverse universe) {
-        super(universe);
+    private CountDownLatch latch;
+
+    public GhcnUSStatesManager(GhcndModel model) {
+        super(model);
     }
 
     public void run() {
         final Stats stats = new Stats(getClass().getSimpleName());
 
         try {
-            this.rootTimeView = universe.time(simpleDateFormat.parse("18000101").getTime());
-        } catch (ParseException e) {
+
+            MyFtpClient ftp = new MyFtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
+            System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
+            long startTime = System.currentTimeMillis();
+            File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
+            stats.time_download = System.currentTimeMillis() - startTime;
+            System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
+
+            if (countriesFile != null && countriesFile.exists()) {
+                BufferedReader reader = new BufferedReader(new FileReader(countriesFile));
+                String line = null;
+                ArrayList<String> lines = new ArrayList<String>();
+                startTime = System.currentTimeMillis();
+                while ((line = reader.readLine()) != null) {
+                    lines.add(line);
+                }
+                latch = new CountDownLatch(lines.size());
+                stats.time_readFile = System.currentTimeMillis() - startTime;
+                startTime = System.currentTimeMillis();
+                for (String l : lines) {
+                    processLine(l, stats);
+
+                }
+                latch.await();
+                stats.time_insert = System.currentTimeMillis() - startTime;
+                startTime = System.currentTimeMillis();
+
+                model.save(new KCallback<Throwable>() {
+                    public void on(Throwable throwable) {
+                        if (throwable != null) {
+                            throwable.printStackTrace();
+                        }
+                    }
+                });
+                //baseFactory.commit();
+                stats.time_commit = System.currentTimeMillis() - startTime;
+            } else {
+                System.err.println("Country file not available locally !");
+            }
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        rootTimeView.getRoot(new KCallback<KObject>() {
-            public void on(KObject results) {
-                MyFtpClient ftp = null;
-                BufferedReader reader = null;
-                if (results == null) {
-                    System.err.println("Could not reach the root");
-                }
-                try {
-                    root = (DataSet) results;
-                    if (root != null) {
-                        ftp = new MyFtpClient(serverAddress, remoteDirectory, localDirectory, null, null);
-                        System.out.println("Downloading :" + remoteDirectory + "/" + fileName);
-                        long startTime = System.currentTimeMillis();
-                        File countriesFile = ftp.getRemoteFile(remoteDirectory, fileName);
-                        stats.time_download = System.currentTimeMillis() - startTime;
-                        System.out.println("Downloading Complete:" + countriesFile.getAbsolutePath());
 
-                        if (countriesFile != null && countriesFile.exists()) {
-                            reader = new BufferedReader(new FileReader(countriesFile));
-                            String line = null;
-                            ArrayList<String> lines = new ArrayList<String>();
-                            startTime = System.currentTimeMillis();
-                            while ((line = reader.readLine()) != null) {
-                                lines.add(line);
-                            }
-                            stats.time_readFile = System.currentTimeMillis() - startTime;
-                            startTime = System.currentTimeMillis();
-                            for (String l : lines) {
-                                processLine(l, stats);
-                                if (stats.insertions != 0 && stats.insertions % 50 == 0) {
-                                    System.out.println("Inserted " + stats.insertions + "/" + lines.size());
-                                }
-                            }
-                            stats.time_insert = System.currentTimeMillis() - startTime;
-                            startTime = System.currentTimeMillis();
-
-                            root.manager().save(new KCallback<Throwable>() {
-                                public void on(Throwable throwable) {
-                                    if (throwable != null) {
-                                        throwable.printStackTrace();
-                                    }
-                                }
-                            });
-                            //baseFactory.commit();
-                            stats.time_commit = System.currentTimeMillis() - startTime;
-                        } else {
-                            System.err.println("Country file not available locally !");
-                        }
-                    }
+        result.statistics.add(stats);
 
 
-                    result.statistics.add(stats);
-
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    if (ftp != null) {
-                        ftp.disconnect();
-                    }
-                    if (reader != null) {
-                        try {
-                            reader.close();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-        });
     }
 
 
@@ -121,14 +98,19 @@ public class GhcnUSStatesManager extends AbstractManager {
         //System.out.println("ID:"+id+"; name:" + name);
         stats.lookups++;
 
-        root.traversal().traverse(MetaDataSet.REL_USSTATES).withAttribute(MetaUSState.ATT_ID, id).then(new KCallback<KObject[]>() {
-            public void on(KObject[] states) {
-                if (states == null || states.length == 0) {
-                    root.addUsStates(rootTimeView.createUSState().setId(id).setName(name));
+        model.find(MetaUSState.getInstance(), 0, KConfig.BEGINNING_OF_TIME, "id=" + id, new KCallback<KObject>() {
+            public void on(KObject kObject) {
+                if (kObject == null) {
+                    model.createUSState(0, KConfig.BEGINNING_OF_TIME).setId(id).setName(name);
                     stats.insertions++;
+                    if (stats.insertions != 0 && stats.insertions % 50 == 0) {
+                        System.out.println("Inserted " + stats.insertions + " so far.");
+                    }
                 }
+                latch.countDown();
             }
         });
+
 
     }
 }

@@ -24,5 +24,8 @@ public class ThreadPoolManager {
         waitingExecution.add(f);
         return f;
     }
+    public static void shutdown() {
+        threadPool.shutdown();
+    }
 
 }

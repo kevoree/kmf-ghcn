@@ -37,15 +37,15 @@ public class GhcnLoaderTest {
     //@Test
     public void mainTest() throws IOException {
 
-        //deleteBase();
+        deleteBase();
 
         final GhcnLoader ghcn = new GhcnLoader();
         ghcn.initFactory(new KCallback() {
             public void on(Object o) {
-                // ghcn.updateCountries();
-                //ghcn.updateUSStates();
-                //ghcn.updateStations();
-                ghcn.updateDaily();
+                ghcn.updateCountries();
+                ghcn.updateUSStates();
+                ghcn.updateStations();
+                //ghcn.updateDaily();
 
                 ghcn.waitCompletion();
                 ghcn.free();

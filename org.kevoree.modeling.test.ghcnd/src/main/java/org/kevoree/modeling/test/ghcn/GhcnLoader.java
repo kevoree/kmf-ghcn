@@ -1,22 +1,14 @@
 package org.kevoree.modeling.test.ghcn;
 
-import kmf.ghcn.DataSet;
 import kmf.ghcn.GhcndModel;
-import kmf.ghcn.GhcndUniverse;
-import kmf.ghcn.GhcndView;
 import org.kevoree.modeling.KCallback;
-import org.kevoree.modeling.KObject;
-import org.kevoree.modeling.drivers.leveldb.LevelDbContentDeliveryDriver;
 import org.kevoree.modeling.memory.manager.DataManagerBuilder;
-import org.kevoree.modeling.scheduler.impl.DirectScheduler;
+import org.kevoree.modeling.plugin.LevelDBPlugin;
 import org.kevoree.modeling.test.ghcn.utils.Stats;
 import org.kevoree.modeling.test.ghcn.utils.ThreadPoolManager;
 import org.kevoree.modeling.test.ghcn.utils.UpdateResult;
 
 import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.TimeZone;
 import java.util.concurrent.*;
 
 /**
@@ -25,7 +17,7 @@ import java.util.concurrent.*;
 public class GhcnLoader {
 
     private String dbLocation = "GhcnLevelDB";
-    private GhcndUniverse universe;
+    private GhcndModel model;
 
     public GhcnLoader() {
     }
@@ -39,11 +31,10 @@ public class GhcnLoader {
 
         try {
 
-            final GhcndModel model = new GhcndModel(DataManagerBuilder.create().withScheduler(new DirectScheduler()).withContentDeliveryDriver(new LevelDbContentDeliveryDriver(dbLocation)).build());
+            model = new GhcndModel(DataManagerBuilder.create().withContentDeliveryDriver(new LevelDBPlugin(dbLocation)).build());
             model.connect(new KCallback() {
                 public void on(Object o) {
-                    universe = model.universe(0);
-                    checkRoot(nextTask);
+                    nextTask.on(null);
                 }
             });
 
@@ -53,46 +44,8 @@ public class GhcnLoader {
     }
 
 
-    private void checkRoot(final KCallback nextTask) {
-
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMd");
-        simpleDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-
-        try {
-            final GhcndView rootTimeView = universe.time(simpleDateFormat.parse("18000101").getTime());
-            rootTimeView.getRoot(new KCallback<KObject>() {
-                public void on(KObject kObject) {
-                    if (kObject == null) {
-                        System.out.println("Create root");
-                        final DataSet root = rootTimeView.createDataSet();
-                        rootTimeView.setRoot(root, new KCallback() {
-                            public void on(Object o) {
-                                root.manager().save(new KCallback<Throwable>() {
-                                    public void on(Throwable throwable) {
-                                        if (throwable != null) {
-                                            throwable.printStackTrace();
-                                        } else {
-                                            System.out.println("Root saved");
-                                        }
-                                        nextTask.on(null);
-                                    }
-                                });
-                            }
-                        });
-                    } else {
-                        nextTask.on(null);
-                    }
-                }
-            });
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-
     public void free() {
-        universe = null;
+
     }
 
     public void updateAll() {
@@ -103,6 +56,7 @@ public class GhcnLoader {
     }
 
     public void waitCompletion() {
+        ThreadPoolManager.shutdown();
         while (ThreadPoolManager.waitingExecution.size() > 0) {
             try {
                 Future<UpdateResult> f = ThreadPoolManager.waitingExecution.poll();
@@ -122,7 +76,7 @@ public class GhcnLoader {
 
     public void updateCountries() {
         System.out.println("Starting Country update");
-        ThreadPoolManager.addTask(new GhcnCountriesManager(universe));
+        ThreadPoolManager.addTask(new GhcnCountriesManager(model));
         //(new GhcnCountriesManager(baseFactory)).run();
        /*
         Thread t  = new Thread(new GhcnCountriesManager(baseFactory));
@@ -136,7 +90,7 @@ public class GhcnLoader {
     }
 
     public void updateStations() {
-        ThreadPoolManager.addTask(new GhcnStationsManager(universe));
+        ThreadPoolManager.addTask(new GhcnStationsManager(model));
         //(new GhcnStationsManager(baseFactory)).run();
        /*
         Thread t  = new Thread(new GhcnStationsManager(baseFactory));
@@ -150,7 +104,7 @@ public class GhcnLoader {
     }
 
     public void updateUSStates() {
-        ThreadPoolManager.addTask(new GhcnUSStatesManager(universe));
+        ThreadPoolManager.addTask(new GhcnUSStatesManager(model));
         //(new GhcnUSStatesManager(baseFactory)).run();
         /*
         Thread t  = new Thread(new GhcnUSStatesManager(baseFactory));
@@ -164,6 +118,6 @@ public class GhcnLoader {
     }
 
     public void updateDaily() {
-        ThreadPoolManager.addTask(new GhcnDailyManager(universe));
+        ThreadPoolManager.addTask(new GhcnDailyManager(model));
     }
 }
